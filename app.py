@@ -1,20 +1,25 @@
 from flask import Flask, request
+from datetime import date
 
 app = Flask(__name__)
 
+# 今日の訪問者カウンター（簡易）
+today = date.today()
+visitor_count = 0
+
 FORTUNE = {
-    "aries": "今日は勢いが鍵となります。迷いや不安を感じても、一歩踏み出す勇気を持つことが、新しい道を開くでしょう。直感を信じて前へ進むことが大切です。",
-    "taurus": "丁寧な仕事ぶりや細やかな気配りが周囲から高く評価される一日です。焦らず、一つ一つのタスクに心を込めて取り組むことで、確かな成果と信頼を得られます。",
-    "gemini": "会話運が非常に良い日です。短いやり取りやふとした言葉の中に、今後のチャンスに繋がるヒントが隠されています。積極的にコミュニケーションを取りましょう。",
-    "cancer": "身近な人に優しく接することで、心の平穏が訪れ、全体的な運気が整うでしょう。",
-    "leo": "あなたが主役の一日です。自信を持って堂々と行動することで、周りの人々を惹きつけるでしょう。",
-    "virgo": "身の回りの片付けや整理整頓が開運アクションとなります。",
-    "libra": "バランス感覚が冴えわたる日です。冷静な視点が重要です。",
-    "scorpio": "集中力を発揮できる一日です。深く掘り下げると成果があります。",
-    "sagittarius": "小さな冒険が吉。新しい場所へ。",
-    "capricorn": "積み重ねが実を結ぶ日です。",
-    "aquarius": "ひらめきを大切に。メモを。",
-    "pisces": "感受性が高まる日。音楽や映画が吉。"
+    "aries": "今日は勢いが鍵となります。迷いや不安を感じても、一歩踏み出す勇気を持つことが、新しい道を開くでしょう。",
+    "taurus": "丁寧な仕事ぶりや細やかな気配りが評価される一日です。",
+    "gemini": "会話運が良好。言葉の中にチャンスあり。",
+    "cancer": "優しさが運気を整えます。",
+    "leo": "あなたが主役の日。堂々と。",
+    "virgo": "整理整頓が開運アクション。",
+    "libra": "冷静な判断が光ります。",
+    "scorpio": "集中力が成果を生みます。",
+    "sagittarius": "小さな冒険が吉。",
+    "capricorn": "積み重ねが実を結ぶ日。",
+    "aquarius": "ひらめきを大切に。",
+    "pisces": "感受性が高まる日。"
 }
 
 SIGN_LABEL = {
@@ -34,6 +39,14 @@ SIGN_LABEL = {
 
 @app.get("/")
 def home():
+    global visitor_count, today
+
+    if date.today() != today:
+        today = date.today()
+        visitor_count = 0
+
+    visitor_count += 1
+
     options = ""
     for k, v in SIGN_LABEL.items():
         options += f'<option value="{k}">{v}</option>'
@@ -42,7 +55,7 @@ def home():
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Y2K 星座占い</title>
+<title>あずにゃんこ星座占い</title>
 <style>
 body {{
   background: linear-gradient(135deg, #000, #1a0033);
@@ -70,7 +83,10 @@ button {{
 </head>
 <body>
 <div class="card">
-<h1>星座占い ✨</h1>
+<h1>🐱 あずにゃんこ星座占い ✨</h1>
+<p style="text-align:center;font-size:12px;color:#18f2ff;">
+TODAY'S VISITORS ✦ {visitor_count}
+</p>
 <form action="/fortune">
 <select name="sign">{options}</select>
 <button type="submit">占う</button>
@@ -94,9 +110,6 @@ def fortune():
 <body style="background:black;color:white;font-family:Arial">
 <h1>{label}</h1>
 <p>{text}</p>
-<a href="/" style="color:#ff2fb3">戻る</a>
+<p><a href="/" style="color:#ff2fb3">戻る</a></p>
 </body>
 </html>"""
-
-if __name__ == "__main__":
-    app.run()
