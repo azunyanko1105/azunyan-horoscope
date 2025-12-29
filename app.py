@@ -1,45 +1,93 @@
 import calendar
+import json
+import os
 import random
-from datetime import date
-from flask import Flask, request
+from datetime import date, datetime
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# --- 1. Google AdSense ---
-ADS_CODE = """
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6112085882585441" crossorigin="anonymous"></script>
-"""
+# --- 運営設定 ---
+ADMIN_PASSWORD = "pocky1111"
+DATA_FILE = "chat_data.json"
 
-# --- 2. CSS Style ---
+# --- データ保存用関数 ---
+def load_data():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except: return []
+    return []
+
+def save_data(data):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+# --- カレンダー生成関数 ---
+def generate_calendar():
+    today = date.today()
+    cal = calendar.monthcalendar(today.year, today.month)
+    html = f'<div class="calendar-panel"><div class="label-gold">{today.year}.{today.month}</div><table class="cal"><tr>'
+    for d in ["SU","MO","TU","WE","TH","FR","SA"]: html += f'<th>{d}</th>'
+    html += "</tr>"
+    for wk in cal:
+        html += "<tr>"
+        for d in wk:
+            if d == 0: html += "<td></td>"
+            elif d == today.day: html += f'<td class="today">{d}</td>'
+            else: html += f'<td>{d}</td>'
+        html += "</tr>"
+    return html + "</table></div>"
+
+# --- CSS Style ---
 STYLE = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lora:ital,wght@0,400;1,400&family=Shippori+Mincho:wght@400;600&display=swap');
-body { background-color: #050505; background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://www.transparenttextures.com/patterns/black-mamba.png'); color: #e2c08d; font-family: 'Shippori Mincho', serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 40px 0; }
-.marble-panel { width: 90%; max-width: 650px; padding: 60px 40px; background: #0a0a0a; border: 1px solid #3d3326; box-shadow: 0 0 0 6px #0a0a0a, 0 0 0 10px #8c6d3e, 0 50px 100px rgba(0,0,0,1); text-align: center; margin-bottom: 50px; }
-h1 { font-family: 'Shippori Mincho', serif; font-size: 42px; letter-spacing: 4px; margin: 0; color: #c9a063; line-height: 1.2; font-weight: 600; }
+
+body { 
+    background-color: #050505; 
+    background-image: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('https://www.transparenttextures.com/patterns/black-mamba.png'); 
+    color: #e2c08d; 
+    font-family: 'Shippori Mincho', serif; 
+    display: flex; flex-direction: column; align-items: center; 
+    min-height: 100vh; margin: 0; padding: 40px 0; 
+    font-size: 1.2rem;
+}
+
+.marble-panel { 
+    width: 90%; max-width: 650px; padding: 60px 40px; 
+    background: #0a0a0a; border: 1px solid #3d3326; 
+    box-shadow: 0 0 0 6px #0a0a0a, 0 0 0 10px #8c6d3e; 
+    text-align: center; margin-bottom: 50px; 
+}
+
+h1 { font-family: 'Shippori Mincho', serif; font-size: 2.8rem; letter-spacing: 4px; margin: 0; color: #c9a063; line-height: 1.2; font-weight: 600; }
 .sub-title { font-family: 'Cinzel', serif; font-size: 14px; color: #63543e; margin-bottom: 40px; letter-spacing: 5px; }
-.latin-quote { font-family: 'Lora', serif; font-style: italic; font-size: 2.2em; line-height: 1.3; color: #f5e6b3; margin: 30px 0 10px 0; }
-.jp-meaning { font-size: 1.6em; color: #8c6d3e; margin-bottom: 40px; font-weight: 600; line-height: 1.5; }
-.fortune-text { font-size: 1.5em; line-height: 1.8; margin: 30px 0; color: #e2d1b9; text-align: left; border-left: 3px solid #8c6d3e; padding-left: 20px; white-space: pre-wrap; }
-.divider { width: 100px; height: 1px; background: #8c6d3e; margin: 30px auto; }
 
-/* ラッキーアイテム・カラーの文字サイズを小さく調整 */
-.lucky-box { border-top: 1px solid #2a241b; padding-top: 30px; margin-top: 40px; text-align: center; }
-.lucky-item-large { font-size: 1.6em; color: #f5e6b3; font-weight: 600; margin-bottom: 15px; display: block; }
-.label-gold { font-family: 'Cinzel', serif; font-size: 13px; color: #8c6d3e; display: block; margin-bottom: 8px; letter-spacing: 2px; }
+.latin-quote { font-family: 'Lora', serif; font-style: italic; font-size: 2.2rem; line-height: 1.3; color: #f5e6b3; margin: 30px 0 10px 0; }
+.jp-meaning { font-size: 1.6rem; color: #8c6d3e; margin-bottom: 40px; font-weight: 600; }
+.fortune-text { font-size: 1.4rem; line-height: 1.8; margin: 30px 0; color: #e2d1b9; text-align: left; border-left: 2px solid #8c6d3e; padding-left: 20px; white-space: pre-wrap; }
 
-.color-circle { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #e2c08d; margin-right: 10px; vertical-align: middle; }
-select, button.submit-btn { width: 100%; padding: 20px; background: #111; border: 1px solid #3d3326; color: #c9a063; font-family: 'Cinzel', serif; font-size: 20px; cursor: pointer; }
-.chat-container { width: 90%; max-width: 650px; background: #0a0a0a; border: 1px solid #3d3326; padding: 20px; margin-top: 30px; }
-.chat-messages { height: 150px; overflow-y: auto; text-align: left; border-bottom: 1px solid #3d3326; padding: 10px; font-size: 1.1em; color: #e2d1b9; margin-bottom: 10px; }
-.chat-input-area { display: flex; flex-direction: column; gap: 10px; }
-.chat-row { display: flex; gap: 10px; }
-.chat-input { background: #111; border: 1px solid #3d3326; color: #e2c08d; padding: 10px; }
-.name-input { width: 100px; }
-.msg-input { flex: 1; }
-.chat-send { background: #8c6d3e; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; color: #000; }
-a { color: #63543e; text-decoration: none; font-size: 1.4em; border-bottom: 1px solid; }
-.calendar-panel { width: 90%; max-width: 400px; padding: 20px; background: rgba(10,10,10,0.8); border: 1px solid #3d3326; text-align: center; margin-top: 30px; }
+.color-circle { display: inline-block; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #e2c08d; margin-right: 12px; vertical-align: middle; }
+
+.chat-container { width: 90%; max-width: 650px; background: #0a0a0a; border: 1px solid #3d3326; padding: 30px; margin-top: 30px; box-sizing: border-box; }
+.chat-messages { height: 400px; overflow-y: auto; text-align: left; border-bottom: 1px solid #3d3326; padding: 10px; font-size: 1.1rem; color: #e2d1b9; margin-bottom: 20px; }
+.res-item { border-bottom: 1px solid #1a1510; padding: 15px 0; position: relative; }
+.res-header { font-size: 0.9rem; color: #8c6d3e; margin-bottom: 8px; display: flex; align-items: center; }
+.res-name { color: #c9a063; font-weight: bold; margin: 0 10px; }
+.res-body { font-size: 1.2rem; color: #f0f0f0; margin-top: 5px; }
+
+.delete-btn { color: #632a2a; border: 1px solid #632a2a; padding: 2px 8px; font-size: 0.7rem; cursor: pointer; margin-left: auto; }
+
+.msg-input { width: 100%; background: #111; border: 1px solid #3d3326; color: #e2c08d; padding: 15px; font-size: 1.2rem; box-sizing: border-box; margin-bottom: 10px; font-family: 'Shippori Mincho', serif; }
+.chat-send { width: 100%; background: #8c6d3e; color: #000; padding: 20px; font-weight: bold; font-size: 1.3rem; border: none; cursor: pointer; font-family: 'Cinzel', serif; }
+select, .submit-btn { width: 100%; padding: 25px; background: #111; border: 1px solid #3d3326; color: #c9a063; font-family: 'Cinzel', serif; font-size: 1.5rem; cursor: pointer; margin-top: 20px; }
+.label-gold { font-family: 'Cinzel', serif; font-size: 13px; color: #8c6d3e; display: block; margin-bottom: 8px; letter-spacing: 2px; text-transform: uppercase; }
+
+a.back-link { color: #63543e; text-decoration: none; font-size: 1.2rem; border-bottom: 1px solid; margin-top: 30px; display: inline-block; }
+
+.calendar-panel { width: 90%; max-width: 400px; padding: 20px; background: rgba(10,10,10,0.8); border: 1px solid #3d3326; text-align: center; margin-top: 40px; }
 table.cal { width: 100%; border-collapse: collapse; font-family: 'Cinzel', serif; font-size: 16px; margin-top: 10px; }
 .cal th { color: #8c6d3e; padding: 8px; }
 .cal td { padding: 8px; color: #e2c08d; }
@@ -260,70 +308,66 @@ FORTUNE = {
     ]
 }
 
-def generate_calendar():
-    today = date.today()
-    cal = calendar.monthcalendar(today.year, today.month)
-    html = f'<div class="calendar-panel"><div class="label-gold">{today.year}.{today.month}</div><table class="cal"><tr>'
-    for d in ["SU","MO","TU","WE","TH","FR","SA"]: html += f'<th>{d}</th>'
-    html += "</tr>"
-    for wk in cal:
-        html += "<tr>"
-        for d in wk:
-            if d == 0: html += "<td></td>"
-            elif d == today.day: html += f'<td class="today">{d}</td>'
-            else: html += f'<td>{d}</td>'
-        html += "</tr>"
-    return html + "</table></div>"
-
 @app.get("/")
 def home():
     opts = "".join([f'<option value="{k}">{v["label"]} / {v["jp"]}</option>' for k,v in SIGN_DATA.items()])
-    return f"""<!doctype html><html lang='ja'><head><meta charset='utf-8'><title>今日の星座占い</title>{ADS_CODE}{STYLE}</head>
+    chat_logs = load_data()
+    
+    messages_html = f"""
+    <div class="res-item">
+        <div class="res-header">
+            <span class="res-num">#1</span>
+            <span class="res-name">ピュティア ★</span>
+            <span>2025/12/29 00:00:00</span>
+        </div>
+        <div class="res-body">ようこそ、運命の交差点へ。汝の心のさざなみを、この聖なる場に記すがよい。</div>
+    </div>"""
+    
+    for i, post in enumerate(chat_logs):
+        # 削除ボタンをヘッダーの右（margin-left: auto）に配置
+        messages_html += f"""
+        <div class="res-item">
+            <div class="res-header">
+                <span class="res-num">#{i+2}</span>
+                <span class="res-name">{post['name']}</span>
+                <span>{post['time']}</span>
+                <div class="delete-btn" onclick="delPost({i})">削除</div>
+            </div>
+            <div class="res-body">{post['body']}</div>
+        </div>"""
+
+    return f"""<!doctype html><html lang='ja'><head><meta charset='utf-8'><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>聖なる占い</title>{STYLE}</head>
     <body>
         <div class='marble-panel'>
             <h1>今日の星座占い</h1>
-            <div class='sub-title'>HODIERNA MEA SIDERA</div>
-            <div class='divider'></div>
-            <form action='/fortune'>
-                <select name='sign'>{opts}</select>
-                <button type='submit' class='submit-btn'>DIVINE YOUR FATUM</button>
-            </form>
+            <div class='sub-title'>DELPHIC ORACLE</div>
+            <form action='/fortune'><select name='sign'>{opts}</select>
+            <button class='submit-btn' type="submit">Consule Sidera</button></form>
         </div>
-        
+
         <div class="chat-container">
-            <span class="label-gold">DELPHIC ORACLE CHAT / 聖なる交流</span>
-            <div class="chat-messages" id="chat-box">
-                <div>[ピュティア]：汝の運命は、いかなる星影に照らされたか？</div>
-            </div>
-            <div class="chat-input-area">
-                <div class="chat-row">
-                    <input type="text" id="chat-name" class="chat-input name-input" placeholder="あだ名">
-                    <input type="text" id="chat-input" class="chat-input msg-input" placeholder="メッセージを入力...">
-                </div>
-                <button class="chat-send" onclick="sendMessage()">SEND / 送信</button>
-            </div>
+            <span class="label-gold">SACRED COMMUNION / 聖なる交流</span>
+            <div class="chat-messages">{messages_html}</div>
+            <input type="text" id="name" class="msg-input" placeholder="名前">
+            <textarea id="body" class="msg-input" style="height:100px;" placeholder="メッセージ"></textarea>
+            <button class="chat-send" onclick="send()">送信</button>
         </div>
-        
+
         {generate_calendar()}
 
         <script>
-            function sendMessage() {{
-                const nameInput = document.getElementById('chat-name');
-                const msgInput = document.getElementById('chat-input');
-                const box = document.getElementById('chat-box');
-                
-                let name = nameInput.value.trim();
-                if (name === '') name = '匿名';
-                
-                const msg = msgInput.value.trim();
-                
-                if(msg !== '') {{
-                    const div = document.createElement('div');
-                    div.innerHTML = `<span style="color:#8c6d3e">[</span><span>${{name}}]：</span>` + msg;
-                    box.appendChild(div);
-                    msgInput.value = '';
-                    box.scrollTop = box.scrollHeight;
-                }}
+            async function send() {{
+                const name = document.getElementById('name').value || '名無しの巡礼者';
+                const body = document.getElementById('body').value;
+                if(!body) return;
+                await fetch('/post', {{ method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{name, body}}) }});
+                location.reload();
+            }}
+            async function delPost(idx) {{
+                if(prompt("合言葉を入力") === "{ADMIN_PASSWORD}") {{
+                    await fetch('/delete', {{ method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{index:idx}}) }});
+                    location.reload();
+                }} else {{ alert("合言葉が一致しません"); }}
             }}
         </script>
     </body></html>"""
@@ -331,25 +375,48 @@ def home():
 @app.get("/fortune")
 def fortune():
     sign = request.args.get("sign", "aries")
-    today = date.today()
-    seed = today.toordinal() + sum(ord(c) for c in sign)
-    random.seed(seed)
-    q = random.choice(LATIN_QUOTES)
-    msgs = FORTUNE.get(sign, ["神託は沈黙している。"])
-    msg = random.choice(msgs)
+    data = SIGN_DATA.get(sign, SIGN_DATA["aries"])
+    quote = random.choice(LATIN_QUOTES)
     item = random.choice(LUCKY_ITEMS)
     color = random.choice(COLORS)
-    return f"""<!doctype html><html lang='ja'><head><meta charset='utf-8'><title>結果</title>{ADS_CODE}{STYLE}</head><body>
-    <div class='marble-panel'>
-        <span class='label-gold'>SENTENTIA / 今日の格言</span><div class='latin-quote'>{q['lt']}</div><div class='jp-meaning'>{q['jp']}</div><div class='divider'></div>
-        <span class='label-gold'>ORACULUM / {SIGN_DATA.get(sign, {}).get('jp', '星')}の運勢</span><div class='fortune-text'>{msg}</div>
-        <div class='lucky-box'>
-            <span class='label-gold'>LUCKY ITEM</span><span class='lucky-item-large'>{item}</span>
-            <span class='label-gold'>LUCKY COLOR</span>
-            <span class='lucky-item-large'><span class="color-circle" style="background:{color['c']}"></span>{color['n']}</span>
+    text = random.choice(FORTUNE.get(sign, ["吉"]))
+    
+    return f"""<!doctype html><html lang='ja'><head><meta charset='utf-8'><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>神託</title>{STYLE}</head>
+    <body>
+        <div class='marble-panel'>
+            <div class='label-gold'>{data['label']}</div>
+            <div class='latin-quote'>{quote['lt']}</div>
+            <div class='jp-meaning'>{quote['jp']}</div>
+            <div class='fortune-text'>{text}</div>
+            <div style="margin-top:40px; border-top: 1px solid #2a241b; padding-top:30px; text-align:center;">
+                <div class='label-gold'>Lucky Item</div>
+                <div style="font-size:1.8rem; color:#f5e6b3; margin-bottom:20px;">{item}</div>
+                <div class='label-gold'>Lucky Color</div>
+                <div style="font-size:1.5rem;"><span class="color-circle" style="background:{color['c']}"></span>{color['n']}</div>
+            </div>
+            <a href="/" class="back-link">← 地上へ戻る</a>
         </div>
-        <div style='margin-top:50px;'><a href='/'>RETURN</a></div>
-    </div></body></html>"""
+    </body></html>"""
+
+@app.post("/post")
+def post():
+    data = request.json
+    logs = load_data()
+    data['time'] = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    logs.append(data)
+    save_data(logs)
+    return jsonify({"status": "ok"})
+
+@app.post("/delete")
+def delete():
+    idx = request.json.get("index")
+    logs = load_data()
+    if 0 <= idx < len(logs):
+        # データを消さずに中身を書き換えて保存
+        logs[idx]['name'] = ""
+        logs[idx]['body'] = "このレスは削除されました"
+        save_data(logs)
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
